@@ -9,15 +9,19 @@
 
 #include "Poco/Net/AcceptCertificateHandler.h"
 #include "Poco/Net/Context.h"
+#include "Poco/Net/HTTPRequest.h"
+#include "Poco/Net/HTTPResponse.h"
+#include "Poco/Net/HTTPSClientSession.h"
 #include "Poco/Net/InvalidCertificateHandler.h"
 #include "Poco/Net/SSLManager.h"
 
-#include "Poco/JSON/Parser.h"
-#include "Poco/NumberFormatter.h"
-
 #include "Poco/Format.h"
+#include "Poco/JSON/Parser.h"
 #include "Poco/Mutex.h"
+#include "Poco/NullStream.h"
+#include "Poco/NumberFormatter.h"
 #include "Poco/Runnable.h"
+#include "Poco/StreamCopier.h"
 #include "Poco/ThreadPool.h"
 
 #include <iostream>
@@ -35,6 +39,11 @@ using Poco::ThreadPool;
 using Poco::Mutex;
 using Poco::format;
 using Poco::Stopwatch;
+using Poco::StreamCopier;
+using Poco::Net::HTTPSClientSession;
+using Poco::Net::HTTPResponse;
+using Poco::Net::HTTPRequest;
+using Poco::URI;
 
 using namespace Poco::Net;
 using namespace std;
@@ -81,11 +90,25 @@ class VkFetcher : public Runnable {
             string fields = "country,sex,bdate";
             string url =
                 format("%s?v=3&user_ids=%s&fields=%s", domain, uids, fields);
-            auto& opener = Poco::URIStreamOpener::defaultOpener();
-            auto  uri    = Poco::URI{url};
-            auto  is     = std::shared_ptr<std::istream>{opener.open(uri)};
 
-            Var           result = parser.parse(*is);
+            URI    uri(url);
+            string path(uri.getPathAndQuery());
+            if (path.empty())
+                path = "/";
+
+            HTTPSClientSession session(uri.getHost(), uri.getPort());
+            HTTPRequest        request(HTTPRequest::HTTP_GET, path,
+                                HTTPMessage::HTTP_1_1);
+
+            request.setKeepAlive(true);
+
+            HTTPResponse response;
+            session.sendRequest(request);
+
+            if (response.getStatus() != HTTPResponse::HTTP_OK) return;
+                istream& rs = session.receiveResponse(response);
+
+            Var           result = parser.parse(rs);
             Object::Ptr   obj    = result.extract<Object::Ptr>();
             DynamicStruct ds     = *obj;
 
@@ -100,13 +123,11 @@ class VkFetcher : public Runnable {
                 cout << result << endl;
                 out_m.unlock();
             }
-            // Poco::StreamCopier::copyToString(*(is.get()), content);
+
         } catch (Poco::Exception& e) {
             std::cerr << e.displayText() << std::endl;
         }
     }
-
-    void parse() {}
 };
 
 // initialize SSL
@@ -133,8 +154,8 @@ int main(int argc, char** argv) {
     }
 
     // launch threads
-    int num_threads = 200;
-    auto&& pool = Poco::ThreadPool::defaultPool();
+    int    num_threads = 24;
+    auto&& pool        = Poco::ThreadPool::defaultPool();
     // default capacity 16
     pool.addCapacity(num_threads - pool.capacity());
     Poco::Stopwatch sw;
