@@ -1,6 +1,4 @@
 req = require 'request'
-readline = require 'readline'
-parser = require './parser'
 
 start_fetchers = ->
     fetch() for i in [0...500]

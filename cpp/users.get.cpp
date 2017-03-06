@@ -93,8 +93,6 @@ class VkFetcher : public Runnable {
 
             URI    uri(url);
             string path(uri.getPathAndQuery());
-            if (path.empty())
-                path = "/";
 
             HTTPSClientSession session(uri.getHost(), uri.getPort());
             HTTPRequest        request(HTTPRequest::HTTP_GET, path,
