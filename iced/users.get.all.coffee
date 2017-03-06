@@ -1,7 +1,7 @@
 req = require 'request'
 
 start_fetchers = ->
-    fetch() for i in [0...500]
+    fetch() for i in [0...800]
 
 fetch = ()->
     uids = queue.shift()
