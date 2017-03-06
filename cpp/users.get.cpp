@@ -133,13 +133,14 @@ int main(int argc, char** argv) {
     }
 
     // launch threads
+    int num_threads = 200;
     auto&& pool = Poco::ThreadPool::defaultPool();
     // default capacity 16
-    pool.addCapacity(24 - pool.capacity());
+    pool.addCapacity(num_threads - pool.capacity());
     Poco::Stopwatch sw;
     sw.start();
     VkFetcher fetcher;
-    for (int i = 0; i < 24; i++) {
+    for (int i = 0; i < num_threads; i++) {
         pool.start(fetcher);
     }
     pool.joinAll();
