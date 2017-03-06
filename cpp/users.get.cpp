@@ -1,4 +1,5 @@
 #include "Poco/Exception.h"
+#include "Poco/Stopwatch.h"
 #include "Poco/StreamCopier.h"
 
 #include "Poco/Net/HTTPSStreamFactory.h"
@@ -33,12 +34,14 @@ using Poco::NumberFormatter;
 using Poco::ThreadPool;
 using Poco::Mutex;
 using Poco::format;
+using Poco::Stopwatch;
 
 using namespace Poco::Net;
 using namespace std;
 
 queue<int> uids_q;
 Mutex      uids_m;
+Mutex      out_m;
 
 // fetcher
 class VkFetcher : public Runnable {
@@ -48,7 +51,7 @@ class VkFetcher : public Runnable {
 
         while (true) {
             string uids       = "";
-            int    max_length = 100;
+            int    max_length = 2000;
             {
                 uids_m.lock();
                 // pop some uids from queue up to particular string length
@@ -74,7 +77,6 @@ class VkFetcher : public Runnable {
 
         Parser parser;
         try {
-            cout << uids << endl;
             string domain = "https://api.vk.com/method/users.get";
             string fields = "country,sex,bdate";
             string url =
@@ -94,8 +96,9 @@ class VkFetcher : public Runnable {
                 sex    = u["sex"].isEmpty() ? "-" : u["sex"].toString();
                 cntr   = u["country"].isEmpty() ? "-" : u["country"].toString();
                 result = format("%s\t%s\t%s\t%s", uid, sex, bdate, cntr);
+                out_m.lock();
                 cout << result << endl;
-                // cout << u.toString() << std::endl;
+                out_m.unlock();
             }
             // Poco::StreamCopier::copyToString(*(is.get()), content);
         } catch (Poco::Exception& e) {
@@ -125,21 +128,22 @@ int main(int argc, char** argv) {
     initialize();
 
     // load ids
-    for (int i = 0; i < 1000; i++) {
+    for (uint32_t i = 0; i < 100000; i++) {
         uids_q.push(i);
     }
 
     // launch threads
-    auto&&           pool = Poco::ThreadPool::defaultPool();
-    list<VkFetcher*> fetchers;
-    for (int i = 0; i < 16; i++) {
-        VkFetcher* fetcher = new VkFetcher();
-        pool.start(*fetcher);
-        fetchers.push_front(fetcher);
+    auto&& pool = Poco::ThreadPool::defaultPool();
+    // default capacity 16
+    pool.addCapacity(24 - pool.capacity());
+    Poco::Stopwatch sw;
+    sw.start();
+    VkFetcher fetcher;
+    for (int i = 0; i < 24; i++) {
+        pool.start(fetcher);
     }
     pool.joinAll();
-    for (auto&& f : fetchers) {
-        delete f;
-    }
+    sw.stop();
+    cerr << "Elapsed: " << sw.elapsedSeconds() << "s" << endl;
     return 0;
 }
