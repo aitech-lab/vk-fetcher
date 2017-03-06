@@ -1,5 +1,2 @@
-add_executable(http.get http.get.cpp )
-target_link_libraries(http.get PocoNetSSL PocoCrypto PocoNet PocoUtil PocoJSON PocoXML PocoFoundation )
-
-add_executable(https.get https.get.cpp )
-target_link_libraries(https.get PocoNetSSL PocoCrypto PocoNet PocoUtil PocoJSON PocoXML PocoFoundation )
+add_executable(users.get users.get.cpp )
+target_link_libraries(users.get PocoNetSSL PocoCrypto PocoNet PocoUtil PocoJSON PocoXML PocoFoundation )
