@@ -55,6 +55,12 @@ Mutex      out_m;
 // fetcher
 class VkFetcher : public Runnable {
 
+  public:
+    HTTPSClientSession session;
+    string             fields;
+
+    VkFetcher() : session("api.vk.com", 443), fields("country,sex,bdate") {}
+
     // thread loop
     virtual void run() {
 
@@ -86,32 +92,20 @@ class VkFetcher : public Runnable {
 
         try {
 
-            string domain = "https://api.vk.com";
-            string fields = "country,sex,bdate";
             string path = format("/method/users.get?v=3&user_ids=%s&fields=%s",
                                  uids, fields);
 
-            string url = domain + path;
-
-            URI    uri(url);
-            string path(uri.getPathAndQuery());
-
-            HTTPSClientSession session(uri.getHost(), uri.getPort());
-
             HTTPRequest request(HTTPRequest::HTTP_GET, path,
                                 HTTPMessage::HTTP_1_1);
-
             request.setKeepAlive(true);
-
             HTTPResponse response;
-            session.sendRequest(request);
-
+            this->session.sendRequest(request);
             if (response.getStatus() != HTTPResponse::HTTP_OK)
                 return;
-            istream& rs = session.receiveResponse(response);
+            istream& rs = this->session.receiveResponse(response);
 
             parse(rs);
-           
+
         } catch (Poco::Exception& e) {
             std::cerr << e.displayText() << std::endl;
         }
@@ -157,7 +151,7 @@ int main(int argc, char** argv) {
     initialize();
 
     // load ids
-    for (uint32_t i = 0; i < 1000000; i++) {
+    for (uint32_t i = 0; i < 10000; i++) {
         uids_q.push(i);
     }
 
@@ -168,11 +162,16 @@ int main(int argc, char** argv) {
     pool.addCapacity(num_threads - pool.capacity());
     Poco::Stopwatch sw;
     sw.start();
-    VkFetcher fetcher;
+
+    list<VkFetcher*> fetchers;
     for (int i = 0; i < num_threads; i++) {
-        pool.start(fetcher);
+        VkFetcher* f = new VkFetcher;
+        pool.start(*f);
+        fetchers.push_back(f);
     }
     pool.joinAll();
+    for (auto&& f : fetchers)
+        delete f;
     sw.stop();
     cerr << "Elapsed: " << sw.elapsedSeconds() << "s" << endl;
     return 0;
