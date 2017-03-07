@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
     initialize();
 
     // load ids
-    for (uint32_t i = 0; i < 10000; i++) {
+    for (uint32_t i = 0; i < 1000000; i++) {
         uids_q.push(i);
     }
 
