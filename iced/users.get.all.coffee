@@ -1,13 +1,22 @@
 req = require 'request'
 
+start_t = process.hrtime()[0]
+process.on "exit", ->
+  console.error "Duration: ", process.hrtime()[0]-start_t, "sec"
+
+fetchers = 800
+
+max_uid    = 1000000
+max_length = 4000
+max_cnt    = 800
+
 start_fetchers = ->
-    fetch() for i in [0...800]
+    fetch() for i in [0...fetchers]
 
 fetch = ()->
     uids = queue.shift()
     return unless uids?
 
-    console.error queue.length
     await grab_url uids, defer err, uids, response
     unless err?
         for u in response
@@ -35,12 +44,11 @@ grab_url = (uids, cb)->
 
 
 queue = []
-max_length = 4000
 uids = ""
 cnt = 0
-for uid in [0..1000000]
+for uid in [0..max_uid]
     uids += uid
-    if uids.length > max_length or cnt > 800
+    if uids.length > max_length or cnt > max_cnt
         queue.push uids
         uids = ""
         cnt = 0
