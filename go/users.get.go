@@ -16,7 +16,7 @@ import (
 
 const fetchers = 800
 
-const max_uid = 10000000
+const max_uid = 1000000
 const max_cnt = 800
 const max_len = 4000
 
