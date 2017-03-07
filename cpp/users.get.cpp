@@ -86,15 +86,19 @@ class VkFetcher : public Runnable {
 
         try {
 
-            string domain = "https://api.vk.com/method/users.get";
+            string domain = "https://api.vk.com";
             string fields = "country,sex,bdate";
-            string url =
-                format("%s?v=3&user_ids=%s&fields=%s", domain, uids, fields);
+            string path = format("/method/users.get?v=3&user_ids=%s&fields=%s",
+                                 uids, fields);
 
-            URI                uri(url);
-            string             path(uri.getPathAndQuery());
+            string url = domain + path;
+
+            URI    uri(url);
+            string path(uri.getPathAndQuery());
+
             HTTPSClientSession session(uri.getHost(), uri.getPort());
-            HTTPRequest        request(HTTPRequest::HTTP_GET, path,
+
+            HTTPRequest request(HTTPRequest::HTTP_GET, path,
                                 HTTPMessage::HTTP_1_1);
 
             request.setKeepAlive(true);
@@ -107,7 +111,7 @@ class VkFetcher : public Runnable {
             istream& rs = session.receiveResponse(response);
 
             parse(rs);
-
+           
         } catch (Poco::Exception& e) {
             std::cerr << e.displayText() << std::endl;
         }
