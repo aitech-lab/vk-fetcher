@@ -86,6 +86,7 @@ class VkFetcher : public Runnable {
 
         Parser parser;
         try {
+
             string domain = "https://api.vk.com/method/users.get";
             string fields = "country,sex,bdate";
             string url =
@@ -97,33 +98,37 @@ class VkFetcher : public Runnable {
             HTTPSClientSession session(uri.getHost(), uri.getPort());
             HTTPRequest        request(HTTPRequest::HTTP_GET, path,
                                 HTTPMessage::HTTP_1_1);
-
             request.setKeepAlive(true);
 
             HTTPResponse response;
             session.sendRequest(request);
 
-            if (response.getStatus() != HTTPResponse::HTTP_OK) return;
-                istream& rs = session.receiveResponse(response);
+            if (response.getStatus() != HTTPResponse::HTTP_OK)
+                return;
+            istream& rs = session.receiveResponse(response);
 
             Var           result = parser.parse(rs);
             Object::Ptr   obj    = result.extract<Object::Ptr>();
             DynamicStruct ds     = *obj;
 
-            for (auto&& u : ds["response"]) {
-                string uid, bdate, sex, cntr, result;
-                uid    = u["uid"].isEmpty() ? "-" : u["uid"].toString();
-                bdate  = u["bdate"].isEmpty() ? "-" : u["bdate"].toString();
-                sex    = u["sex"].isEmpty() ? "-" : u["sex"].toString();
-                cntr   = u["country"].isEmpty() ? "-" : u["country"].toString();
-                result = format("%s\t%s\t%s\t%s", uid, sex, bdate, cntr);
-                out_m.lock();
-                cout << result << endl;
-                out_m.unlock();
-            }
+            parse(ds);
 
         } catch (Poco::Exception& e) {
             std::cerr << e.displayText() << std::endl;
+        }
+    }
+
+    void parse(DynamicStruct& ds) {
+        for (auto&& u : ds["response"]) {
+            string uid, bdate, sex, cntr, result;
+            uid    = u["uid"].isEmpty() ? "-" : u["uid"].toString();
+            bdate  = u["bdate"].isEmpty() ? "-" : u["bdate"].toString();
+            sex    = u["sex"].isEmpty() ? "-" : u["sex"].toString();
+            cntr   = u["country"].isEmpty() ? "-" : u["country"].toString();
+            result = format("%s\t%s\t%s\t%s", uid, sex, bdate, cntr);
+            out_m.lock();
+            cout << result << endl;
+            out_m.unlock();
         }
     }
 };
