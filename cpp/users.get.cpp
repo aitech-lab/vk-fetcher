@@ -84,7 +84,6 @@ class VkFetcher : public Runnable {
     // call vk api
     void callApi(const string& uids) {
 
-        Parser parser;
         try {
 
             string domain = "https://api.vk.com/method/users.get";
@@ -92,12 +91,12 @@ class VkFetcher : public Runnable {
             string url =
                 format("%s?v=3&user_ids=%s&fields=%s", domain, uids, fields);
 
-            URI    uri(url);
-            string path(uri.getPathAndQuery());
-
+            URI                uri(url);
+            string             path(uri.getPathAndQuery());
             HTTPSClientSession session(uri.getHost(), uri.getPort());
             HTTPRequest        request(HTTPRequest::HTTP_GET, path,
                                 HTTPMessage::HTTP_1_1);
+
             request.setKeepAlive(true);
 
             HTTPResponse response;
@@ -107,18 +106,20 @@ class VkFetcher : public Runnable {
                 return;
             istream& rs = session.receiveResponse(response);
 
-            Var           result = parser.parse(rs);
-            Object::Ptr   obj    = result.extract<Object::Ptr>();
-            DynamicStruct ds     = *obj;
-
-            parse(ds);
+            parse(rs);
 
         } catch (Poco::Exception& e) {
             std::cerr << e.displayText() << std::endl;
         }
     }
 
-    void parse(DynamicStruct& ds) {
+    void parse(istream& rs) {
+
+        Parser        parser;
+        Var           result = parser.parse(rs);
+        Object::Ptr   obj    = result.extract<Object::Ptr>();
+        DynamicStruct ds     = *obj;
+
         for (auto&& u : ds["response"]) {
             string uid, bdate, sex, cntr, result;
             uid    = u["uid"].isEmpty() ? "-" : u["uid"].toString();
