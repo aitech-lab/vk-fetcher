@@ -1,0 +1,3 @@
+[submodule "c/ujson4c"]
+	path = c/ujson4c
+	url = https://github.com/esnme/ujson4c/
