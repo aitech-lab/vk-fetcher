@@ -38,6 +38,7 @@ void parse_user(UJObject user) {
                              L"sex", L"city",       L"country"};
     UJObject uid = NULL, first_name = NULL, last_name = NULL, sex = NULL,
              city = NULL, country = NULL;
+
     UJObjectUnpack(user, 6, "NSSNNN", keys, &uid, &first_name, &last_name, &sex,
                    &city, &country);
 
@@ -61,8 +62,6 @@ void parse_json(buf_t* buf) {
     const wchar_t* keys[] = {L"response", L"error"};
     UJObject       json = NULL, response = NULL, error = NULL;
 
-    // printf("%s\n", buf->buf);
-
     json = UJDecode(buf->buf, buf->size, NULL, &state);
     if (json != NULL) {
         int cnt = UJObjectUnpack(json, 2, "AO", keys, &response, &error);
@@ -75,6 +74,9 @@ void parse_json(buf_t* buf) {
                 parse_user(user);
             }
         }
+    } else {
+        fprintf(stderr, "JSON ERROR\n");
+        fprintf(stderr, "------\n%s\n------\n", buf);
     }
     UJFree(state);
 }

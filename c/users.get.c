@@ -8,7 +8,7 @@
 
 #include "worker.h"
 
-#define THREAD_NUM 100
+#define THREAD_NUM 10
 
 int main(int argc, char** argv) {
 
@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
 
     pthread_t threads[THREAD_NUM];
     for (long tid = 0; tid < THREAD_NUM; tid++) {
-        int rc = pthread_create(&threads[tid], NULL, worker, (void*)tid);
+        int rc = pthread_create(&threads[tid], NULL, worker_multi, (void*)tid);
         if (rc) {
             printf("ERROR %d", rc);
             return -1;

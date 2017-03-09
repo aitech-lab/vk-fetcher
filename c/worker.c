@@ -17,11 +17,14 @@
     "users.get?v=3&fields=bdate,city,country,sex&uids="
 #define API_LEN sizeof API
 
-const int  max_cnt         = 800;
+const int  max_cnt         = 5;
 const int  max_len         = 4000;
 const long uids_per_thread = 100000;
 const long max_con         = 100;
 
+// UTILITY //
+
+// Generate VK url with sequental uids
 static unsigned long generate_url(char* url, unsigned long from) {
     sprintf(url, "%s", API);
     int len  = API_LEN - 1;
@@ -35,12 +38,17 @@ static unsigned long generate_url(char* url, unsigned long from) {
     return from;
 }
 
+// Callback for curl, writes data to buffer
 static size_t on_chunk(void* contents, size_t size, size_t nmemb, void* userp) {
     size_t realsize = size * nmemb;
     buf_t* buf      = (buf_t*)userp;
     buf_write(buf, contents, realsize);
     return realsize;
 }
+
+/////////////////////////////////////////
+// ONE KEEP-ALIVE DOWNLODAD PER THREAD //
+/////////////////////////////////////////
 
 void* worker(void* tid) {
 
@@ -67,8 +75,8 @@ void* worker(void* tid) {
         while (from < to) {
             from = generate_url(url, from);
             curl_easy_setopt(curl, CURLOPT_URL, url);
-
             res = curl_easy_perform(curl);
+
             // process buffer
             parse_json(buf);
             // cleanup
@@ -82,36 +90,38 @@ void* worker(void* tid) {
     return NULL;
 }
 
-/////////////////////////////////////////////////////////////
-
-static void multi_init(CURLM* curlm, char* url, buf_t* buf) {
-    CURL* curl = curl_easy_init();
-
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_chunk);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, buf);
-
-    curl_easy_setopt(curl, CURLOPT_HEADER, 0L);
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_PRIVATE, url);
-    curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
-
-    curl_multi_add_handle(curlm, curl);
-}
+///////////////////////////////////
+// MULTIPLE DOWNLODAD PER THREAD //
+///////////////////////////////////
 
 void* worker_multi(void* tid) {
 
     CURLM* curlm;
+    CURL*  curl;
 
     curlm = curl_multi_init();
     curl_multi_setopt(curlm, CURLMOPT_MAXCONNECTS, max_con);
-    buf_t*         bufs[max_con];
-    char*         urls[max_con];
+
+    buf_t* bufs[max_con];
+    char*  urls[max_con];
+
     unsigned long from = ((long)tid) * uids_per_thread + 1;
+    unsigned long to   = from + uids_per_thread + 1;
+
     for (int i = 0; i < max_con; i++) {
         bufs[i] = buf_new();
         urls[i] = malloc(max_len + 100);
         from    = generate_url(urls[i], from);
-        multi_init(curlm, urls[i], bufs[i]);
+        curl    = curl_easy_init();
+        if (curl != NULL) {
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_chunk);
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, bufs[i]);
+            curl_easy_setopt(curl, CURLOPT_PRIVATE, i);
+            curl_easy_setopt(curl, CURLOPT_HEADER, 0L);
+            curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+            curl_easy_setopt(curl, CURLOPT_URL, urls[i]);
+        }
+        curl_multi_add_handle(curlm, curl);
     }
 
     // wait finish
@@ -126,10 +136,32 @@ void* worker_multi(void* tid) {
         CURLMsg* msg;
         int      msg_cnt;
         while ((msg = curl_multi_info_read(curlm, &msg_cnt))) {
+
             if (msg && (msg->msg == CURLMSG_DONE)) {
+
                 CURL* curl = msg->easy_handle;
+                long  i    = -1;
+
+                curl_easy_getinfo(curl, CURLINFO_PRIVATE, &i);
+
+                //fprintf(stderr, "---\n [%d]\n%s\n%s\n%d\n---\n", i, urls[i], bufs[i],bufs[i]->size);
+
+                if (i >= 0 && i < max_con) {
+                    parse_json(bufs[i]);
+                    buf_empty(bufs[i]);
+                }
+
+                if (from < to) {
+                    // add new url
+                    from = generate_url(urls[i], from);
+                    curl_easy_setopt(curl, CURLOPT_URL, urls[i]);
+                    continue;
+                }
+
+                // cleanup
                 curl_multi_remove_handle(curlm, curl);
                 curl_easy_cleanup(curl);
+                
             }
         }
     }
