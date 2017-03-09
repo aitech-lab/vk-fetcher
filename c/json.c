@@ -1,9 +1,12 @@
 
 // ॐ //
 
+#include <pthread.h>
 #include <stdio.h>
 
 #include "json.h"
+
+pthread_mutex_t print_m;
 
 // print string
 void parse_string(UJObject str) {
@@ -14,10 +17,6 @@ void parse_string(UJObject str) {
 
     size_t         len  = 0;
     const wchar_t* wstr = UJReadString(str, &len);
-    /*if(len == 0) {
-        printf("-\t");
-        return;
-        }*/
     wprintf(L"%S\t", wstr);
 }
 
@@ -41,14 +40,19 @@ void parse_user(UJObject user) {
              city = NULL, country = NULL;
     UJObjectUnpack(user, 6, "NSSNNN", keys, &uid, &first_name, &last_name, &sex,
                    &city, &country);
-    parse_int(uid);
-    parse_string(first_name);
-    parse_string(last_name);
-    parse_int(sex);
-    parse_int(city);
-    parse_int(country);
 
-    wprintf(L"\n");
+    pthread_mutex_lock(&print_m);
+    {
+        parse_int(uid);
+        parse_string(first_name);
+        parse_string(last_name);
+        parse_int(sex);
+        parse_int(city);
+        parse_int(country);
+
+        wprintf(L"\n");
+    }
+    pthread_mutex_unlock(&print_m);
 }
 
 // parse json
@@ -72,4 +76,5 @@ void parse_json(buf_t* buf) {
             }
         }
     }
+    UJFree(state);
 }
