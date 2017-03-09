@@ -129,15 +129,17 @@ void* worker_multi(void* tid) {
     }
 
     fd_set         R, W, E;
-    int M;
-    long L;
+    int            M;
+    long           L;
     struct timeval T;
     // wait finish
     int curls_cnt = -1;
     while (curls_cnt) {
 
         curl_multi_perform(curlm, &curls_cnt);
+
         // fprintf(stderr, "tid: %d, curls: %d\n", tid, curls_cnt);
+        // Очен странная хрень, не понятно зачем она вообще, без неё работает
         if (curls_cnt) {
             FD_ZERO(&R);
             FD_ZERO(&W);
