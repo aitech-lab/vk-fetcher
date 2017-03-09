@@ -4,6 +4,7 @@
 #include <locale.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <curl/curl.h>
 
 #include "worker.h"
 
@@ -13,6 +14,7 @@ int main(int argc, char** argv) {
 
     // setlocale(LC_ALL, "ru_RU.UTF-8");
     setlocale(LC_ALL, "");
+    curl_global_init(CURL_GLOBAL_ALL);
 
     pthread_t threads[THREAD_NUM];
     for (long tid = 0; tid < THREAD_NUM; tid++) {
@@ -27,5 +29,9 @@ int main(int argc, char** argv) {
         pthread_join(threads[tid], NULL);
         fprintf(stderr, "Thread %d end\n", tid);
     }
+
+    // cleanup
     pthread_exit(NULL);
+    curl_global_cleanup();
+
 }

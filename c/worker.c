@@ -2,6 +2,8 @@
 // ॐ //
 
 #include <curl/curl.h>
+#include <curl/multi.h>
+
 #include <math.h>
 #include <string.h>
 #include <unistd.h>
@@ -18,6 +20,7 @@
 const int  max_cnt         = 800;
 const int  max_len         = 4000;
 const long uids_per_thread = 100000;
+const long max_con         = 100;
 
 static unsigned long generate_url(char* url, unsigned long from) {
     sprintf(url, "%s", API);
@@ -44,7 +47,6 @@ void* worker(void* tid) {
     CURL*    curl;
     CURLcode res;
 
-    curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
     if (curl) {
         /*
@@ -59,8 +61,8 @@ void* worker(void* tid) {
 
         char url[max_len + 100];
 
-        unsigned long from = ((long)tid) * uids_per_thread+1;
-        unsigned long to   = from + uids_per_thread+1;
+        unsigned long from = ((long)tid) * uids_per_thread + 1;
+        unsigned long to   = from + uids_per_thread + 1;
 
         while (from < to) {
             from = generate_url(url, from);
@@ -78,4 +80,64 @@ void* worker(void* tid) {
         curl_easy_cleanup(curl);
     }
     return NULL;
+}
+
+/////////////////////////////////////////////////////////////
+
+static void multi_init(CURLM* curlm, char* url, buf_t* buf) {
+    CURL* curl = curl_easy_init();
+
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_chunk);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, buf);
+
+    curl_easy_setopt(curl, CURLOPT_HEADER, 0L);
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_PRIVATE, url);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+
+    curl_multi_add_handle(curlm, curl);
+}
+
+void* worker_multi(void* tid) {
+
+    CURLM* curlm;
+
+    curlm = curl_multi_init();
+    curl_multi_setopt(curlm, CURLMOPT_MAXCONNECTS, max_con);
+    buf_t*         bufs[max_con];
+    char*         urls[max_con];
+    unsigned long from = ((long)tid) * uids_per_thread + 1;
+    for (int i = 0; i < max_con; i++) {
+        bufs[i] = buf_new();
+        urls[i] = malloc(max_len + 100);
+        from    = generate_url(urls[i], from);
+        multi_init(curlm, urls[i], bufs[i]);
+    }
+
+    // wait finish
+    int curls_cnt = -1;
+    while (curls_cnt) {
+
+        curl_multi_perform(curlm, &curls_cnt);
+
+        if (curls_cnt) {
+        }
+
+        CURLMsg* msg;
+        int      msg_cnt;
+        while ((msg = curl_multi_info_read(curlm, &msg_cnt))) {
+            if (msg && (msg->msg == CURLMSG_DONE)) {
+                CURL* curl = msg->easy_handle;
+                curl_multi_remove_handle(curlm, curl);
+                curl_easy_cleanup(curl);
+            }
+        }
+    }
+
+    // cleanup
+    for (int i = 0; i < max_con; i++) {
+        buf_free(bufs[i]);
+        free(urls[i]);
+    }
+    curl_multi_cleanup(curlm);
 }
