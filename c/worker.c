@@ -20,7 +20,7 @@
 const int  max_cnt         = 800;
 const int  max_len         = 4000;
 const long uids_per_thread = 1000000;
-const long max_con         = 200;
+const long max_con         = 10;
 
 // UTILITY //
 

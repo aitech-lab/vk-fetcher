@@ -8,7 +8,7 @@
 
 #include "worker.h"
 
-#define THREAD_NUM 1
+#define THREAD_NUM 100
 
 int main(int argc, char** argv) {
 
