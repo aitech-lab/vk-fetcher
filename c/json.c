@@ -75,8 +75,7 @@ void parse_json(buf_t* buf) {
             }
         }
     } else {
-        fprintf(stderr, "JSON ERROR\n");
-        fprintf(stderr, "------\n%s\n------\n", buf);
+        fprintf(stderr, "JSON ERROR, buf %p,  size %d\n", buf, buf->size);
     }
     UJFree(state);
 }
